@@ -1,25 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-
 import { TreeNode } from './TreeComponent';
+import { useNavigate } from 'react-router-dom';
 
 interface CustomerListProps {
     node: TreeNode | null;
+    path: string;
 }
 
-const CustomerList: React.FC<CustomerListProps> = ({ node }) => {
+const CustomerList: React.FC<CustomerListProps> = ({ node,path }) => {
     const [currentPage, setCurrentPage] = useState<number>(1);
     const [customers, setCustomers] = useState<any[]>([]);
     const [pageCount, setPageCount] = useState<number>(1);
     const [rowCount, setRowCount] = useState<number>(0);
     const [pageSize, setPageSize] = useState<number>(() => {
         const storedPageSize = localStorage.getItem('pageSize');
-        return storedPageSize ? parseInt(storedPageSize, 10) : 20;
+        return storedPageSize ? parseInt(storedPageSize) : 20;
     });
 
     const fetchCustomers = async () => {
         try {
-            const url = `https://demo.flexibee.eu/v2/c/demo/adresar.json?limit=${pageSize}&start=${(currentPage - 1) * pageSize
+            const getQuery=()=>{ 
+                //Rozdielne pri node - others
+                if(!node) return "adresar.json";
+                if (node.postCode!="others") return "adresar/(psc begins '"+node.postCode+"').json";
+                //others cez OR
+                return "adresar/("+node.children.map((e)=>`(psc begins '${e.postCode}')` ).join(" OR ")+").json";
+            };
+            const url = `https://demo.flexibee.eu/v2/c/demo/${getQuery()}?limit=${pageSize}&start=${(currentPage - 1) * pageSize
                 }&add-row-count=true`;
             const response = await axios.get(url);
 
@@ -45,24 +53,30 @@ const CustomerList: React.FC<CustomerListProps> = ({ node }) => {
         setCurrentPage(1); // Resetujeme na prvnú stránku po zmene veľkosti stránky
     };
 
+    const navigate=useNavigate();
     const handleFirstPage = () => setCurrentPage(1);
     const handlePrevPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
     const handleNextPage = () => setCurrentPage((prev) => Math.min(prev + 1, pageCount));
     const handleLastPage = () => setCurrentPage(pageCount);
+    
+    const handleNodeClick = (ev: React.MouseEvent<HTMLAnchorElement>) => {
+        ev.preventDefault();
+        navigate(ev.currentTarget.pathname);
+    };
 
     return (
         <div>
             {node ? (
                 <>
-                    <h1>Zoznam zákazníkov pre uzol: {node.postCode}</h1>
-                    <h3>Filter za: {node.postCode}</h3>
-                    <p>Childrens: {node.children?.map((e) => e.postCode + '(' + e.cnt + 'x)').join('|')}</p>
+                    <h1>Zoznam zákazníkov</h1>
+                    <p>Filter za: {node.postCode}</p>
+                    <p>{path}</p>
+                    <p>Podskupiny: {node.children?.map((e) => (<a href={'/psc/'+path+'/'+e.postCode} onClick={handleNodeClick}> {e.postCode + '(' + e.cnt + 'x)'} </a>))}</p>
                     <p>Počet záznamov: {rowCount}</p>
                 </>
             ) : (
                 <>
                     <h1>Zoznam zákazníkov - bez obmedzenia</h1>
-                    <h3>Všetky záznamy:</h3>
                     <p>Počet záznamov: {rowCount}</p>
                 </>
             )}

@@ -32,7 +32,7 @@ const DataLoader: React.FC = () => {
         const groupedData: { [key: string]: { count: number; items: any[] } } = {};
 
         data.forEach((item) => {
-            item.psc=item.psc.toString().replaceAll('"','').replaceAll(' ',''); //normalizacia
+            //item.psc=item.psc.toString().replaceAll('"','').replaceAll(' ',''); //normalizacia
             for (var i = 0; i < item.psc.length; i++) {
                 var part=item.psc.slice(0,i+1);
                 if (!groupedData[part]) {

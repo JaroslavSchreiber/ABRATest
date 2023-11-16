@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 
 import CustomerList from './CustomerList';
-import { all } from 'axios';
 
 
 export interface TreeNode {
@@ -34,9 +33,9 @@ const TreeComponent: React.FC = () => {
 
         const make_top_and_others = (allchilds: TreeNode[], lastlevel: Boolean): TreeNode[] => {
             if (allchilds.length == 0) return allchilds;
-            var ret = allchilds.slice(0, 4);
+            var ret = allchilds.slice(0, 4).map((e)=>({...e})); //clone object
             var others = allchilds.slice(4).reduce((p, c) => { p.cnt = p.cnt + c.cnt; return p; }, { postCode: "others", cnt: 0, children: lastlevel ? [] : allchilds.slice(4) } as TreeNode);
-            //others.children = make_top_and_others(others.children);
+
             if (others.cnt)
                 ret.push(others);
             return ret;
@@ -52,11 +51,12 @@ const TreeComponent: React.FC = () => {
 
         var children = ret;
         selectedNode = null;
+
         psc.split('/').every((e, i, ar) => {
             selectedNode = children.find((v) => v.postCode == e) ?? null;
             if (!selectedNode) return false;
 
-            if (!selectedNode.children || selectedNode.children.length == 0)  //nie je others - ziskame childrns
+            if (!selectedNode.children || selectedNode.children.length == 0)  //nie je others - ziskame childrens
             {
                 selectedNode.children = getChildren(selectedNode.postCode, selectedNode.children.length == 0 ? nodes : selectedNode.children, i == ar.length - 1);
                 children.forEach((e) => { if (e !== selectedNode) e.children = []; });
@@ -75,7 +75,6 @@ const TreeComponent: React.FC = () => {
     const handleNodeClick = (ev: React.MouseEvent<HTMLAnchorElement>) => {
         ev.preventDefault();
         navigate(ev.currentTarget.pathname);
-
     };
 
     const renderTree = (nodes: TreeNode[] | null, path: string) => {
@@ -84,8 +83,8 @@ const TreeComponent: React.FC = () => {
         return (
             <ul className="list-group">
                 {nodes.map((node) => (
-                    <li key={node.postCode} className={`list-group-item ${node === selectedNode ? 'active' : ''}`}>
-                        <a href={path + '/' + node.postCode} onClick={handleNodeClick} >
+                    <li key={node.postCode} className={`list-group-item ${path + '/' + node.postCode === '/psc/'+psc ? 'active' : ''}`}>
+                        <a href={path + '/' + node.postCode} onClick={handleNodeClick}>
                             {node.postCode} <small>({node.cnt})</small>x
                         </a>
                         {renderTree(node.children, path + '/' + node.postCode)}
@@ -104,7 +103,7 @@ const TreeComponent: React.FC = () => {
                     {renderTree(treeData, '/psc')}
                 </div>
                 <div className="col-md-6">
-                    <CustomerList node={selectedNode} />
+                    <CustomerList node={selectedNode} path={psc ?? '' } />
                 </div>
             </div>
         </div>
