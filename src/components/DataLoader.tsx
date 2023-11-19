@@ -29,18 +29,25 @@ const DataLoader: React.FC = () => {
     }, [dispatch]);
 
     const groupDataByPSC = (data: any[]) => {
-        const groupedData: { [key: string]: { count: number; items: any[] } } = {};
+        const groupedData: { [key: string]: { count: number; items: number[], varians: string[] } } = {};
 
         data.forEach((item) => {
-            //item.psc=item.psc.toString().replaceAll('"','').replaceAll(' ',''); //normalizacia
+            //var original = item.psc;
+            //item.psc = original.toString().replaceAll('"', '').replaceAll(' ', ''); //normalizacia bez medzier
             for (var i = 0; i < item.psc.length; i++) {
-                var part=item.psc.slice(0,i+1);
+                var part = item.psc.toString().slice(0, i + 1).replaceAll('"', '').replaceAll(' ', ''); //normalizacia bez medzier
+                var original = item.psc.toString().slice(0, i + 1);
                 if (!groupedData[part]) {
-                    groupedData[part] = { count: 0, items: [] };
+                    groupedData[part] = { count: 0, items: [], varians: [] };
                 }
 
-                groupedData[part].count++;
-                groupedData[part].items.push({ id: item.id });
+                if (groupedData[part].items.indexOf(item.id) < 0) {
+                    groupedData[part].count++;
+                    groupedData[part].items.push(item.id);
+
+                }
+                if (groupedData[part].varians.indexOf(original) < 0)
+                    groupedData[part].varians.push(original);
             }
         });
 
