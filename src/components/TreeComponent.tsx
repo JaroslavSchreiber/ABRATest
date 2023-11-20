@@ -34,18 +34,41 @@ const TreeComponent: React.FC = () => {
 
         const make_top_and_others = (allchilds: TreeNode[], lastlevel: Boolean): TreeNode[] => {
             if (allchilds.length == 0) return allchilds;
-            var ret = allchilds.slice(0, 4).map((e) => ({ ...e })); //clone object
-            var prevCode = 'xxxxxx';
-            var others = allchilds.slice(4).sort((a, b) => a.postCode < b.postCode ? -1 : 1)
-                .reduce((p, c) => {
-                    c.varians.forEach((e) => { if (p.varians.indexOf(e) < 0) p.varians.push(e); });
-                    if (!c.postCode.startsWith(prevCode)) {
-                        p.cnt = p.cnt + c.cnt;
-                        prevCode = c.postCode;
+            var ret: TreeNode[] = [];
+            var others_nodes: TreeNode[] = [];
+
+            for (var i = 0; i < allchilds.length; i++) {
+                var obj = ({ ...allchilds[i] }); //Klon
+                if (ret.length>=4) {
+                    others_nodes.push(obj);
+                    continue;
+                }
+ 
+                for (var j = 0; j < ret.length; j++)
+                    if (obj.postCode.startsWith(ret[j].postCode)) {
+                        others_nodes.push(ret[j]);
+                        ret[j] = obj;
+                        break;
                     }
-                    return p;
-                },
-                    { postCode: "others", cnt: 0, children: lastlevel ? [] : allchilds.slice(4), varians: [] } as TreeNode);
+                if (j == ret.length)
+                    if (ret.length < 4)
+                        ret.push(obj);
+                    else
+                        others_nodes.push(obj);
+
+            }
+            //allchilds.slice(0, 4).map((e) => ({ ...e })); //clone object
+            //var others = allchilds.slice(4).sort((a, b) => a.postCode < b.postCode ? -1 : 1)
+            var prevCode = 'xxxxxx';
+            var others = others_nodes.sort((a, b) => a.postCode < b.postCode ? -1 : 1).reduce((p, c) => {
+                c.varians.forEach((e) => { if (p.varians.indexOf(e) < 0) p.varians.push(e); });
+                if (!c.postCode.startsWith(prevCode)) {
+                    p.cnt = p.cnt + c.cnt;
+                    prevCode = c.postCode;
+                }
+                return p;
+            },
+                { postCode: "others", cnt: 0, children: lastlevel ? [] : others_nodes.slice(0).sort((a, b) => b.cnt - a.cnt), varians: [] } as TreeNode);
 
             if (others.cnt)
                 ret.push(others);
