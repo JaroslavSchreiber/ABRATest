@@ -29,26 +29,33 @@ const DataLoader: React.FC = () => {
     }, [dispatch]);
 
     const groupDataByPSC = (data: any[]) => {
-        const groupedData: { [key: string]: { count: number; items: number[], varians: string[] } } = {};
+        const groupedData: { [key: string]: { count: number; items: number[], varians: string[] } } = { "_root": { count: 0, items: [], varians: [] } };
+
+        const addToGroupData = (part: string, original: string, item: any) => {
+            if (!groupedData[part]) {
+                groupedData[part] = { count: 0, items: [], varians: [] };
+            }
+            if (groupedData[part].items.indexOf(item.id) < 0) {
+                groupedData[part].count++;
+                groupedData[part].items.push(item.id);
+            }
+            if (groupedData[part].varians.indexOf(original) < 0)
+                groupedData[part].varians.push(original);
+
+        };
 
         data.forEach((item) => {
-            //var original = item.psc;
-            //item.psc = original.toString().replaceAll('"', '').replaceAll(' ', ''); //normalizacia bez medzier
+            //            if (item.psc.toString().trim() == "") {
+            //               addToGroupData("_prázdne_",item.psc.toString(),item);
+            //            }
+            //            else
             for (var i = 0; i < item.psc.length; i++) {
-                var part = item.psc.toString().slice(0, i + 1).replaceAll('"', '').replaceAll(' ', ''); //normalizacia bez medzier
+                var part: string = item.psc.toString().slice(0, i + 1).replaceAll('"', '').replaceAll(' ', '').toLowerCase(); //normalizacia bez medzier
                 var original = item.psc.toString().slice(0, i + 1);
-                if (!groupedData[part]) {
-                    groupedData[part] = { count: 0, items: [], varians: [] };
-                }
-
-                if (groupedData[part].items.indexOf(item.id) < 0) {
-                    groupedData[part].count++;
-                    groupedData[part].items.push(item.id);
-
-                }
-                if (groupedData[part].varians.indexOf(original) < 0)
-                    groupedData[part].varians.push(original);
+                addToGroupData(part, original, item);
             }
+            groupedData["_root"].count++;
+            groupedData["_root"].items.push(item.id);
         });
 
         return groupedData;

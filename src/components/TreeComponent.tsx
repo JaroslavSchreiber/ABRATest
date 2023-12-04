@@ -9,7 +9,8 @@ export interface TreeNode {
     postCode: string;
     cnt: number;
     children: TreeNode[];
-    varians: string[]
+    parent: TreeNode | null;
+    varians: string[];
 }
 
 
@@ -22,89 +23,108 @@ const TreeComponent: React.FC = () => {
     const appdata: any[] = useSelector((state: any) => state.data); // 
 
     const nodes: TreeNode[] = [];
+    var root: TreeNode = { postCode: "", cnt: 0, children: [], parent: null, varians: [] } as TreeNode;
     Object.entries(appdata).forEach(function ([key, e]) {
-        nodes.push({ postCode: key, cnt: e.count, children: [], varians: e.varians } as TreeNode);
+        if (key == "_root") root = { postCode: "", cnt: e.count, children: [], parent: null, varians: e.varians } as TreeNode;
+        else nodes.push({ postCode: key, cnt: e.count, children: [], parent: null, varians: e.varians } as TreeNode);
     });
 
     const navigate = useNavigate();
 
 
-    const createTreeData = (psc: string): TreeNode[] => {
+    const createTreeData = (psc: string): TreeNode => {
 
 
-        const make_top_and_others = (allchilds: TreeNode[], lastlevel: Boolean): TreeNode[] => {
+        const make_top_and_others = (parentNode: TreeNode, allchilds: TreeNode[], lastlevel: Boolean): TreeNode[] => {
             if (allchilds.length == 0) return allchilds;
             var ret: TreeNode[] = [];
-            var others_nodes: TreeNode[] = [];
 
-            for (var i = 0; i < allchilds.length; i++) {
-                var obj = ({ ...allchilds[i] }); //Klon
-                if (ret.length>=4) {
-                    others_nodes.push(obj);
-                    continue;
-                }
- 
+            for (var i = 0; i < allchilds.length && ret.length < 5; i++) {
+                if (allchilds[i].cnt <= 0) continue;
+                var obj: TreeNode = ({ ...allchilds[i] }); //Klon
+                obj.parent = parentNode;
+
                 for (var j = 0; j < ret.length; j++)
                     if (obj.postCode.startsWith(ret[j].postCode)) {
-                        others_nodes.push(ret[j]);
                         ret[j] = obj;
                         break;
                     }
                 if (j == ret.length)
-                    if (ret.length < 4)
-                        ret.push(obj);
-                    else
-                        others_nodes.push(obj);
+                    ret.push(obj);
 
             }
-            //allchilds.slice(0, 4).map((e) => ({ ...e })); //clone object
-            //var others = allchilds.slice(4).sort((a, b) => a.postCode < b.postCode ? -1 : 1)
-            var prevCode = 'xxxxxx';
-            var others = others_nodes.sort((a, b) => a.postCode < b.postCode ? -1 : 1).reduce((p, c) => {
-                c.varians.forEach((e) => { if (p.varians.indexOf(e) < 0) p.varians.push(e); });
-                if (!c.postCode.startsWith(prevCode)) {
-                    p.cnt = p.cnt + c.cnt;
-                    prevCode = c.postCode;
-                }
-                return p;
-            },
-                { postCode: "others", cnt: 0, children: lastlevel ? [] : others_nodes.slice(0).sort((a, b) => b.cnt - a.cnt), varians: [] } as TreeNode);
 
-            if (others.cnt)
-                ret.push(others);
+            //Aktualizacia - ponizenie mnozstva o 
+            // Spocitame others node
+            //Pocet zaznamov bude porerntNode.cnt minus sucet uzlov , ktore nie su vyspecifikovane uzloch v poli ret
+            if (ret.length) {
+                var others: TreeNode = {
+                    postCode: "others", cnt: parentNode.cnt - ret.reduce((p, c) => p + c.cnt, 0),
+                    children: [], parent: parentNode, varians: []
+                } as TreeNode;
+                if (others.cnt)
+                    ret.push(others);
+            }
             return ret;
 
         };
 
-        const getChildren = (psc: string, _nodes: TreeNode[], lastlevel: Boolean) => {
-            return make_top_and_others(_nodes.filter((v, i) => v.postCode.startsWith(psc) && v.postCode != psc).sort((a, b) => b.cnt - a.cnt), lastlevel);
+        const getChildren = (node: TreeNode, _nodes: TreeNode[], lastlevel: Boolean) => {
 
+            var subnodes: TreeNode[];
+
+
+            //Skupiny na pouzite vyssich urovniach    
+            var rootnode: TreeNode = node;
+            var skupiny: TreeNode[] = [];
+            while (rootnode.parent != null) {
+                rootnode = rootnode.parent;
+                rootnode.children.forEach((e) => { if (e.postCode != "others") skupiny.push(e) });
+            }
+
+
+            if (node.postCode != "others") {
+                subnodes = _nodes.filter((v, i) =>
+                    v.postCode.startsWith(node.postCode) //Podskpiny podla zaciatku
+                    && v.postCode != node.postCode //Okrem samej seba
+                    && skupiny.indexOf(v) < 0 //a skupin pouzitých na vyssiech urovniach
+                );
+            }
+            else {
+                //ak je postcode== others..tak vytvorime subnoses pole tak ze:
+                // roolup najdeme parent kde poostCode != "others" , pricom pridame do pola vsetlky postCode z childrens okrem others
+                // potom najdmee vsetky skupiny , ktore nie su pod postcode
+                //Pouzite skupiny na tejto a vyssich urovniach
+                var ClosestNotOtherNode: TreeNode = node;
+                var NotOthersNode: TreeNode[] = [];
+                while (ClosestNotOtherNode.parent != null && ClosestNotOtherNode.postCode == "others") {
+                    ClosestNotOtherNode = ClosestNotOtherNode.parent;
+                    ClosestNotOtherNode.children.forEach((e) => { if (e.postCode != "others") NotOthersNode.push(e) });
+                }
+                subnodes = _nodes.filter((v, i) => v.postCode.startsWith(ClosestNotOtherNode.postCode) && NotOthersNode.every((s) => !v.postCode.startsWith(s.postCode)));
+            }
+            subnodes.map((e) => { e.cnt = e.cnt - skupiny.reduce((p, c) => p + (c.postCode.startsWith(e.postCode) ? c.cnt : 0), 0); return e; }); //Skorigujeme pocet o pocty podskupin zobrazenych/pouzitých na vyssich urovniach
+            subnodes.sort((a, b) => b.cnt - a.cnt);
+            return make_top_and_others(node, subnodes, lastlevel);
         };
 
-        var ret: TreeNode[] = getChildren("", nodes, psc == "");
+        root.children = getChildren(root, nodes, psc == "");
 
-        var children = ret;
-        selectedNode = null;
+        //var children = root.children;
+        selectedNode = root;
 
         psc.split('/').every((e, i, ar) => {
-            selectedNode = children.find((v) => v.postCode == e) ?? null;
+            selectedNode = selectedNode?.children.find((v) => v.postCode == e) ?? null;
             if (!selectedNode) return false;
 
-            if (!selectedNode.children || selectedNode.children.length == 0)  //nie je others - ziskame childrens
-            {
-                selectedNode.children = getChildren(selectedNode.postCode, selectedNode.children.length == 0 ? nodes : selectedNode.children, i == ar.length - 1);
-                children.forEach((e) => { if (e !== selectedNode) e.children = []; });
-            }
-            else selectedNode.children = make_top_and_others(selectedNode.children, i == ar.length - 1);
-
-            children = selectedNode.children;
+            selectedNode.children = getChildren(selectedNode, selectedNode.children.length == 0 ? nodes : selectedNode.children, i == ar.length - 1);
             return true;
         });
 
-        return ret;
-
+        return root;
     };
-    var treeData: TreeNode[] = createTreeData(psc ?? "");
+
+    var treeData: TreeNode = createTreeData(psc ?? "");
 
     const handleNodeClick = (ev: React.MouseEvent<HTMLAnchorElement>) => {
         ev.preventDefault();
@@ -134,7 +154,7 @@ const TreeComponent: React.FC = () => {
             <a href="/psc" className="btn btn-primary" onClick={handleNodeClick} >Vypnúť filter</a>
             <div className="row">
                 <div className="col-md-6">
-                    {renderTree(treeData, '/psc')}
+                    {renderTree(treeData.children, '/psc')}
                 </div>
                 <div className="col-md-6">
                     <CustomerList node={selectedNode} path={psc ?? ''} />
